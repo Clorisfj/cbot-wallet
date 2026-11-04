@@ -41,3 +41,5 @@ body{background:radial-gradient(ellipse at 8% 0%,#ff805708,transparent 45%),var(
 .primary{color:var(--on-accent)}.wallet-bottom button{padding:5px 10px;border-radius:7px}.wallet-2 .wallet-bottom button{color:var(--ink)}
 .tab{padding-left:10px;padding-right:10px;border-radius:8px 8px 0 0}.tab:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 12%,var(--surface))}.tab.active{background:color-mix(in srgb,var(--accent) 18%,var(--surface));color:var(--ink)}
 summary{color:var(--accent)}button:disabled{opacity:.4;box-shadow:none}.brand img{object-fit:contain;border-radius:9px}
+
+.nft-value{font-size:13px;font-weight:600;color:var(--ink);margin:8px 0 4px}.nft-info>small{line-height:1.7}#asset-sort{border-color:color-mix(in srgb,var(--accent) 60%,var(--line))}

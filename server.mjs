@@ -1,3 +1,4 @@
+import { updatePrices, applyPrices } from './lib/prices.mjs';
 import http from 'node:http';
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -51,6 +52,8 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
           state.wallets = [...state.wallets.filter(w => w.address !== profile.address), next].sort((a, b) => active.findIndex(p => p.address === a.address) - active.findIndex(p => p.address === b.address));
         }
       }));
+      state.marketPrices = await updatePrices(state.wallets, state.marketPrices, config.refreshMinutes);
+      applyPrices(state.wallets, state.marketPrices);
       state.updatedAt = new Date().toISOString(); state.notice = null;
       await persist();
     } catch { state.notice = '刷新未完成，保留原数据；请检查网络和本地配置'; }
@@ -81,6 +84,7 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
         const next = path === '/api/wallets' ? mergeWalletSettings(config, input, profiles()) : mergeBrowserSettings(config, input);
         const changedProvider = next.ankrKey !== config.ankrKey || next.rpcUrl !== config.rpcUrl || next.refreshMinutes !== config.refreshMinutes;
         config = await saveConfig(next);
+        if (changedProvider && state.marketPrices) delete state.marketPrices.nextAt;
         if (changedProvider) for (const w of state.wallets) { delete w.balanceNextAt; delete w.tokenBalancesNextAt; delete w.assetsNextAt; delete w.historyNextAt; delete w.nftNextAt; }
         state.wallets = state.wallets.filter(w => profiles().some(p => p.address === w.address));
         lastAttempt = 0;
@@ -90,7 +94,7 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
       return;
     }
     if (req.method !== 'GET') return send(405, { error: 'Read-only dashboard' });
-    if (path === '/api/health') return send(200, { app: 'wallet-desk', product: 'cbot-wallet', version: '1.1.2', demo, pid: process.pid, instance });
+    if (path === '/api/health') return send(200, { app: 'wallet-desk', product: 'cbot-wallet', version: '1.2.0', demo, pid: process.pid, instance });
     if (path === '/api/state') return send(200, { ...state, settings: settingsForBrowser(config, demo ? state.wallets : profiles()), usage: usageEstimate(config, state.wallets.length, state.wallets.reduce((n,w) => n + (w.balances || []).filter(b => b.address).length, 0)),
       publicRefreshMinutes: publicInterval(Math.max(1, state.wallets.length)) / 60000, demo });
     if (!files[path]) return send(404, { error: 'Not found' });

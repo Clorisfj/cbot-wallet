@@ -43,3 +43,19 @@ export function tokenVisible(token, hideSmall = true) {
   const value = token.price == null || token.price <= 0 ? null : Number(token.balance) * Number(token.price);
   return !hideSmall || value == null || !Number.isFinite(value) || value >= 0.1;
 }
+
+// Unknown values always sort last; never treat an unavailable quote as zero.
+export function assetValue(asset, nft = false) {
+  const raw = nft ? asset.referenceValueUsd : asset.price != null && asset.price > 0 && typeof asset.balance === 'string' && /^\d+(\.\d+)?$/.test(asset.balance) ? Number(asset.balance) * Number(asset.price) : null;
+  return raw != null && Number.isFinite(Number(raw)) && Number(raw) >= 0 ? Number(raw) : null;
+}
+export function acquisitionTime(asset) {
+  const acquired = Date.parse(asset.acquiredAt), discovered = Date.parse(asset.firstSeenAt);
+  return Number.isFinite(acquired) ? acquired : Number.isFinite(discovered) ? discovered : null;
+}
+export function sortAssets(rows, order, nft = false) {
+  if (order === 'default') return rows;
+  const value = a => order.startsWith('value') ? assetValue(a.asset, nft) : acquisitionTime(a.asset);
+  const ascending = order.endsWith('asc');
+  return [...rows].sort((a,b) => { const av=value(a),bv=value(b); if (av==null || bv==null) return av==null ? bv==null ? 0 : 1 : -1; return ascending ? av-bv : bv-av; });
+}

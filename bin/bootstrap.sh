@@ -18,9 +18,9 @@ if [ -z "$node_bin" ] || ! "$node_bin" -e 'const [a,b]=process.versions.node.spl
   tar -xzf "$base/$file" -C "$base"
   node_bin="$base/node-$version-$os-$arch/bin/node"
 fi
-download 'https://github.com/Clorisfj/cbot-wallet/archive/refs/tags/v1.1.2.tar.gz' "$base/source.tar.gz"
+download 'https://github.com/Clorisfj/cbot-wallet/archive/refs/tags/v1.2.0.tar.gz' "$base/source.tar.gz"
 tar -xzf "$base/source.tar.gz" -C "$base"
-"$node_bin" --use-env-proxy "$base/cbot-wallet-1.1.2/bin/cbot-wallet.mjs" install
+"$node_bin" --use-env-proxy "$base/cbot-wallet-1.2.0/bin/cbot-wallet.mjs" install
 port="${CBOT_PORT:-48765}"
 download "http://127.0.0.1:$port/api/health" "$base/health.json"
 "$node_bin" -e 'const fs=require("node:fs");if(JSON.parse(fs.readFileSync(process.argv[1])).product!=="cbot-wallet")process.exit(1)' "$base/health.json"

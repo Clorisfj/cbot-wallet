@@ -8,12 +8,42 @@ const temp = await mkdtemp(join(tmpdir(), 'cbot-wallet-test-'));
 process.env.CBOT_HOME = temp;
 const { validateConfig, mergeBrowserSettings, mergeWalletSettings, providerKey, settingsForBrowser, publicInterval, saveConfig } = await import('../lib/config.mjs');
 const { makeNetwork, usageEstimate, retryAt, restoreBackoff } = await import('../lib/network.mjs');
-const { tokenVisible, totalBalance, connectionState } = await import('../public/view.mjs');
+const { tokenVisible, totalBalance, connectionState, sortAssets, assetValue } = await import('../public/view.mjs');
 const { units, collect, USDT, safeMetadata, isApprovalCall } = await import('../lib/data.mjs');
 const { normalizedAsset, loadAssets, loadIndexedHistory } = await import('../lib/indexes.mjs');
 const { publicHistoryRows } = await import('../lib/history.mjs');
 const { startServer } = await import('../server.mjs');
 const a = '0x' + '1'.repeat(40), b = '0x' + '2'.repeat(40), token = '0x' + '3'.repeat(40), hash = '0x' + '4'.repeat(64);
+
+const {selectPrices,updatePrices,applyPrices}=await import('../lib/prices.mjs');
+const {stampAcquisition}=await import('../lib/acquisition.mjs');
+test('public price selection checks chain, base contract, trusted quote and liquidity', () => {
+  const good={chainId:'bsc',baseToken:{address:token},quoteToken:{address:'0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c'},pairAddress:a,priceUsd:'2',liquidity:{usd:2000}};
+  const rows=[good,{...good,priceUsd:'999',chainId:'ethereum'},{...good,priceUsd:'999',baseToken:{address:b}},{...good,priceUsd:'999',quoteToken:{address:b}},{...good,priceUsd:'999',liquidity:{usd:10}},{...good,priceUsd:'3',liquidity:{usd:3000}}];
+  assert.equal(selectPrices(rows,[token])[token].price,3);
+  assert.deepEqual(selectPrices([{...good,baseToken:{address:b},quoteToken:{address:token}}],[token]),{});
+});
+test('public prices batch and deduplicate, persist Retry-After and keep original timestamps on failure', async () => {
+  const wallets=[{balances:[{address:token,balance:'1',price:null}]}];let calls=0;
+  const request=async()=>{calls++;return new Response('[]',{status:429,headers:{'retry-after':'3600'}});};
+  const previous={quotes:{[token]:{price:2,priceAt:'2026-01-01T00:00:00Z',priceSource:'DexScreener'}}};
+  const next=await updatePrices([...wallets,...wallets],previous,5,request);
+  assert.equal(calls,1);assert.ok(Date.parse(next.nextAt)>Date.now()+3500000);applyPrices(wallets,next);assert.equal(wallets[0].balances[0].priceAt,'2026-01-01T00:00:00Z');
+  await updatePrices(wallets,next,5,request);assert.equal(calls,1);
+});
+test('asset sorts keep unknowns last in both directions and distinguish value from quantity', () => {
+  const rows=[{asset:{balance:'999',price:null}},{asset:{balance:'2',price:3}},{asset:{balance:'1',price:8}}];
+  assert.equal(sortAssets(rows,'value-desc')[0].asset.price,8);assert.equal(sortAssets(rows,'value-asc')[0].asset.price,3);assert.equal(sortAssets(rows,'value-asc')[2].asset.price,null);
+  assert.equal(assetValue({referenceValueUsd:null},true),null);assert.equal(assetValue({referenceValueUsd:0},true),0);
+  const timed=[{asset:{}},{asset:{firstSeenAt:'2026-01-02'}},{asset:{acquiredAt:'2026-01-01'}}];
+  assert.equal(sortAssets(timed,'time-asc')[0].asset.acquiredAt,'2026-01-01');assert.deepEqual(sortAssets(timed,'time-desc')[2].asset,{});
+});
+test('acquisition uses verified incoming history, preserves first seen and excludes outgoing/unverified', () => {
+  const asset={address:token,balance:'2'}, old={balances:[{...asset,firstSeenAt:'2026-01-01'}]};
+  const wallet={balances:[asset],transactions:[{verified:true,status:'confirmed',time:'2026-02-01',details:[{address:token,direction:'receive'}]},{verified:false,status:'confirmed',time:'2026-03-01',details:[{address:token,direction:'receive'}]},{verified:true,status:'confirmed',time:'2026-04-01',details:[{address:token,direction:'send'}]}]};
+  stampAcquisition(wallet,old);assert.equal(asset.firstSeenAt,'2026-01-01');assert.equal(asset.acquiredAt,'2026-02-01');
+  wallet.transactions=[];stampAcquisition(wallet,wallet,'2026-05-01');assert.equal(asset.firstSeenAt,'2026-01-01');assert.equal(asset.acquiredAt,'2026-02-01');
+});
 
 test('small toggle hides exact zero always, keeps unpriced, and respects 0.1 threshold', () => {
   for (const balance of ['0', '0.000', '000.000']) assert.equal(tokenVisible({ balance, price: null }, false), false);

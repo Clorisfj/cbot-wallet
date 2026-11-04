@@ -24,10 +24,10 @@ if (!$usable) {
   $node = Join-Path $base "node-$version-win-$arch/node.exe"
 }
 if (!$SourcePath) {
-  $archive = Join-Path $base 'cbot-wallet-v1.1.2.zip'
-  Invoke-WebRequest -UseBasicParsing 'https://github.com/Clorisfj/cbot-wallet/archive/refs/tags/v1.1.2.zip' -OutFile $archive
+  $archive = Join-Path $base 'cbot-wallet-v1.2.0.zip'
+  Invoke-WebRequest -UseBasicParsing 'https://github.com/Clorisfj/cbot-wallet/archive/refs/tags/v1.2.0.zip' -OutFile $archive
   Expand-Archive -LiteralPath $archive -DestinationPath $base -Force
-  $SourcePath = Join-Path $base 'cbot-wallet-1.1.2'
+  $SourcePath = Join-Path $base 'cbot-wallet-1.2.0'
 }
 $installArgs = @('--use-env-proxy', (Join-Path $SourcePath 'bin/cbot-wallet.mjs'), 'install')
 if (!$NoAutostart) { $installArgs += '--autostart' }

@@ -1,8 +1,9 @@
-import { stale, historyStale, connectionState, totalBalance, matches, matchesKind, bnbEquivalent, tokenVisible } from './view.mjs';
+import { stale, historyStale, connectionState, totalBalance, matches, matchesKind, bnbEquivalent, tokenVisible, assetValue, sortAssets } from './view.mjs';
 
 const $ = id => document.getElementById(id);
 let state = { wallets: [] }, tab = 'history', polling = false, page = 0, lastPayload = '', offline = false, requesting = false, toastTimer;
 const pageSize = 10;
+const assetSort = { balances: localStorage.getItem('cbot.sort.balances') || 'default', nfts: localStorage.getItem('cbot.sort.nfts') || 'default' };
 let hideSmall = localStorage.getItem('cbot.hideSmall') !== 'false';
 const tokensOld = w => (w.balances || []).some(b => b.address && (!fresh(b.at || w.otherBalanceAt) || b.verificationFailed));
 const publicMinutes = () => Math.max(state.publicRefreshMinutes || 30, state.settings?.refreshMinutes || 30);
@@ -141,9 +142,14 @@ function renderHistory(wallets, query) {
   $('previous-page').disabled = page === 0; $('next-page').disabled = (page + 1) * pageSize >= rows.length;
   return rows.length;
 }
+function acquisitionLabel(asset) {
+  const stamp = asset.acquiredAt || asset.firstSeenAt, node = el('small', '', !stamp ? '时间未知' : (asset.acquiredAt ? '最近转入 · ' : '首次发现 · ') + relative(stamp));
+  node.title = !stamp ? '未取得可靠时间' : time(stamp) + '（北京时间）' + (asset.acquiredAt ? ' · 仅已发现并核验的转入历史，不保证首次买入时间' : ' · 看板首次发现，不代表链上买入时间'); return node;
+}
 function renderBalances(wallets, query) {
   const body = $('balance-rows'); body.replaceChildren(); let count = 0;
-  for (const w of wallets) for (const b of w.balances || []) {
+  const rows = sortAssets(wallets.flatMap(w => (w.balances || []).map(asset => ({asset,w}))), assetSort.balances);
+  for (const {w,asset:b} of rows) {
     if (!tokenVisible(b, hideSmall) || !matches(query, b.symbol, b.address, w.name, handle(w))) continue; count++;
     const tr = el('tr'), token = el('td'), label = el('div', 'token-label'), info = el('div');
     info.append(el('strong', '', b.symbol));
@@ -157,17 +163,21 @@ function renderBalances(wallets, query) {
     wallet.append(el('small', '', '数量更新 · ' + relative(at)));
     const amount = el('td', 'exact-balance' + (!fresh(at) || b.verificationFailed ? ' cached-value' : ''), b.balance);
     if (b.address === '' && b.symbol === 'BNB') amount.append(equivalent(b.balance, w.balanceAt));
-    const value = b.price == null ? null : Number(b.balance) * b.price;
+    const value = assetValue(b);
     const price = el('td', '', value == null || !Number.isFinite(value) ? '未报价 · 不计入估值' : '$' + (value > 0 && value < .01 ? value.toPrecision(3) : value.toFixed(2)));
-    if (value != null) price.append(el('small', '', (stale(b.priceAt || w.otherBalanceAt) ? '缓存报价 · ' : '报价更新 · ') + relative(b.priceAt || w.otherBalanceAt)));
-    tr.append(token, wallet, amount, price); body.append(tr);
+    if (value != null) price.append(el('small', '', !b.priceAt ? '报价时间未知' : (!fresh(b.priceAt) ? '缓存报价 · ' : '报价更新 · ') + relative(b.priceAt)));
+    if (b.priceSource) price.append(el('small', '', b.priceSource));
+    price.title = b.pricePair ? '参考池：' + b.pricePair + '\n流动性 ≈ $' + number(b.priceLiquidityUsd,0) + '；不是卖出报价' : '';
+    const acquired = el('td'); acquired.append(acquisitionLabel(b));
+    tr.append(token, wallet, amount, price, acquired); body.append(tr);
   }
-  if (!count) { const tr = el('tr'), cell = el('td'); cell.colSpan = 4; cell.append(empty('尚未取得代币数据，或当前筛选没有结果。', hasFilters())); tr.append(cell); body.append(tr); }
+  if (!count) { const tr = el('tr'), cell = el('td'); cell.colSpan = 5; cell.append(empty('尚未取得代币数据，或当前筛选没有结果。', hasFilters())); tr.append(cell); body.append(tr); }
   return count;
 }
 function renderNfts(wallets, query) {
   const grid = $('nft-grid'); grid.replaceChildren(); let count = 0;
-  for (const w of wallets) for (const n of w.nfts || []) {
+  const rows = sortAssets(wallets.flatMap(w => (w.nfts || []).map(asset => ({asset,w}))), assetSort.nfts, true);
+  for (const {w,asset:n} of rows) {
     if (!matches(query, n.name, n.symbol, n.tokenId, n.address, w.name, handle(w))) continue; count++;
     const card = el('article', 'nft-card'), image = el('div', 'nft-image');
     const placeholder = () => { const p = el('div', 'nft-placeholder', n.symbol || 'NFT'); p.append(el('small', '', '#' + n.tokenId)); return p; };
@@ -176,6 +186,8 @@ function renderNfts(wallets, query) {
     image.append(el('span', 'nft-owner ' + w.themeClass, handle(w)));
     const info = el('div', 'nft-info'), verifiedAt = n.verifiedAt || n.indexedAt || w.nftAt, old = stale(verifiedAt) || n.verificationFailed;
     info.append(el('strong', '', n.name), el('small', old ? 'old' : '', (old ? '缓存持仓 · ' : n.source === 'ankr' ? '索引持仓 · ' : '归属核验 · ') + relative(verifiedAt)));
+    const value = assetValue(n, true);
+    info.append(el('div', 'nft-value', value == null ? '参考估值 · 未报价' : '参考估值 ≈ $' + number(value,2)), acquisitionLabel(n));
     info.append(link('链上详情 ↗', 'https://bscscan.com/token/' + n.address + '?a=' + n.tokenId));
     const details = el('details'); details.dataset.key = w.id + n.address + n.tokenId;
     details.append(el('summary', '', '合约与属性'), link(n.address, 'https://bscscan.com/token/' + n.address), el('p', '', 'Token ID · ' + n.tokenId));
@@ -194,6 +206,8 @@ function renderDetail() {
     const visible = id === tab; $(id).hidden = !visible;
     const button = $('tab-' + id); button.classList.toggle('active', visible); button.setAttribute('aria-selected', String(visible)); button.tabIndex = visible ? 0 : -1;
   }
+  $('asset-sort').hidden = tab === 'history';
+  if (tab !== 'history') $('asset-sort').value = assetSort[tab];
   $('small-toggle').hidden = tab !== 'balances';
   $('type-filter').hidden = tab !== 'history'; $('clear-filters').hidden = !hasFilters();
   $('history-count').textContent = wallets.reduce((sum, w) => sum + (w.transactions?.length || 0), 0);
@@ -241,6 +255,7 @@ function render() {
   const messages = [];
   if (offline) messages.push('本地服务未连接，已保留页面数据。请通过桌面看板快捷方式重新启动。');
   if (state.notice) messages.push(state.notice);
+  if (state.marketPrices?.error) messages.push(state.marketPrices.error);
   if (state.quoteError) messages.push(state.bnbQuote ? 'BNB 换算报价未更新，保留缓存报价。' : 'BNB/USDT 报价暂不可用，链上 BNB 数量正常显示。');
   if (state.wallets.some(w => !fresh(w.balanceAt) || tokensOld(w) || (w.errors || []).length)) messages.push('部分数据较旧，黄色数值及分项时间可供核对；刷新成功后会自动更新。');
   $('notice').hidden = !messages.length; $('notice').textContent = messages.join(' ');
@@ -319,7 +334,8 @@ $('settings-open').addEventListener('click', () => {
   const summary = $('usage-summary'); summary.replaceChildren();
   const table = el('table'), head = el('tr'); ['间隔', '索引间隔', 'RPC/月≈', '索引/月≈', 'ANKR额度≈'].forEach(t => head.append(el('th', '', t))); table.append(head);
   for (const r of state.usage?.intervals || []) { const row = el('tr'); [r.minutes + '分', r.indexedMinutes + '分', number(r.rpc,0), number(r.index,0), r.credits ? (r.credits / 2000000).toFixed(1) + '%' : '—'].forEach(t => row.append(el('td','',t))); table.append(row); }
-  summary.append(table); $('settings-error').textContent = ''; $('settings-dialog').showModal();
+  const quoteContracts = new Set(state.wallets.flatMap(w => (w.balances || []).filter(b => b.address && /[1-9]/.test(b.balance || '')).map(b => b.address))).size;
+  summary.append(table, el('p', '', '公共报价每轮约 ' + Math.ceil(quoteContracts / 30) + ' 次请求（跨钱包去重、每批30个合约），按所选间隔更新，不消耗 ANKR Credits。')); $('settings-error').textContent = ''; $('settings-dialog').showModal();
 });
 $('settings-form').addEventListener('submit', event => {
   event.preventDefault(); void savePanel('settings', { rpcUrl: $('rpc-url').value.trim(), clearRpc: $('clear-rpc').checked, refreshMinutes: Number($('refresh-minutes').value) });
@@ -340,3 +356,5 @@ $('theme-open').addEventListener('click', () => { $('theme-mode').value = docume
 $('theme-mode').addEventListener('change', () => { $('theme-accent').value = themeDefaults[$('theme-mode').value]; });
 $('theme-form').addEventListener('submit', event => { event.preventDefault(); applyTheme($('theme-mode').value, $('theme-accent').value); $('theme-dialog').close(); });
 $('theme-reset').addEventListener('click', () => { applyTheme('dark'); $('theme-dialog').close(); });
+
+$('asset-sort').addEventListener('change', () => { if (tab !== 'history') { assetSort[tab] = $('asset-sort').value; localStorage.setItem('cbot.sort.' + tab, assetSort[tab]); renderDetail(); } });

@@ -1,3 +1,11 @@
+## v1.2.0 — Public prices and asset sorting
+
+- Added deduplicated, batched DexScreener pricing with exact chain/base contract matching, quote-asset and liquidity screening; timestamps, fallback cache and persistent429 deferral.
+- Token and NFT views independently sort by reference holding value or acquisition/discovery time; unknown values always last, preferences persist.
+- Acquisition uses verified confirmed incoming history, with an explicitly labelled immutable first-discovery fallback. NFT default appraisals remain unknown where no reliable data exists.
+- Source prices keep provider timestamps. Updated docs, synthetic demo and README screenshot.
+- Validation: 19 tests passed; live public price probe and two-wallet integration yielded24 supplementary contracts; synthetic UI verified token value ordering and NFT ascending value/earliest acquisition ordering. No GMGN key needed or collected.
+
 ## v1.1.2 — Known token balance freshness
 
 - Decoupled direct RPC balance checks of known ERC20s from the slower token discovery/index schedule.
