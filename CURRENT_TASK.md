@@ -1,7 +1,7 @@
-# Release preparation
+# cbot Wallet Desk 1.0.0
 
-Scope: BSC-only read-only open-source1.0.0; configurable wallets, token discovery/filtering, optional ANKR/custom RPC, responsive UI, install/agent entrypoints, docs and sharing assets.
+BSC-only read-only dashboard: configurable wallets, login-independent token discovery/filtering, optional ANKR/custom RPC, adaptive cbot UI, install/agent entrypoints, tutorials and synthetic sharing assets.
 
-Local unit/integration checks currently pass12 tests. Three-wallet synthetic browser preview confirms small holdings switch (12→15 visible), zero tokens always hidden, unpriced tokens retained and settings dialog available. A Windows/macOS/Linux CI template is supplied; it is not enabled remotely. ANKR paths have fixture coverage; no user's token has been supplied for live acceptance.
+Verified locally: 12 unit/integration tests; 3-wallet demo small-token switch (12 to15 visible), exact-zero exclusion and unpriced-token retention; real public-address token discovery; packed npm installer start/status/stop; privacy scan excluding participant addresses, local paths, credentials and runtime files. The existing local launcher remains usable with private configuration outside the repository.
 
-Completed locally: privacy scan (no participant addresses/paths/keys), two-wallet migration with independent public token discovery, packed npm installer start/status/stop smoke test, synthetic screenshot and sharing artwork. Remaining: GitHub authentication/publication and remote CI verification. Do not claim GitHub published until the actual remote URL and committed contents are verified.
+The CI template is supplied in docs/CI.example.yml and is not automatically enabled. Windows deployment has direct local evidence; macOS/Linux need target-host smoke tests. ANKR methods are checked against official schemas and fixture-tested; no provider key was supplied for live acceptance. Public indexing is best effort and rate-limited, not a full ledger. Sharing artwork uses synthetic data and makes no profit claims.
