@@ -1,3 +1,10 @@
+## v1.1.2 — Known token balance freshness
+
+- Decoupled direct RPC balance checks of known ERC20s from the slower token discovery/index schedule.
+- Known holdings follow the selected refresh interval; sold-to-zero holdings disappear after successful verification. Failed reads retain prior values and Retry-After.
+- Token freshness warnings now inspect actual per-token timestamps; adjusted provider cost estimates to reflect the independent RPC schedule.
+- Regression verifies discovery-not-due, sold holdings, no duplicate reads, cached values on failure and 429 deferral. No personal addresses or project tokens hardcoded.
+
 ## v1.1.1 — 2026-11-04 — Original CBOT branding and clearer actions
 
 - Reused the original CBOT orange/white logo for header and favicon.

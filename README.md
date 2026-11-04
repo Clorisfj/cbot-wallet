@@ -9,7 +9,7 @@
 ## 复制给你的 agent
 
 ```text
-请安装并部署 cbot Wallet Desk v1.1.1：先读取 https://raw.githubusercontent.com/Clorisfj/cbot-wallet/v1.1.1/docs/INSTALL.agent.md ，按说明检查系统、自动安装缺失环境、安装看板并启动后台、核验健康接口并打开页面。请直接完成可自动执行的步骤，只在系统必须由我授权时提示。保留已有钱包和配置，不登录、不签名、不导出凭据，不开放公网端口。完成后告诉我访问地址及如何停止。我会在页面“钱包管理”添加监控地址。
+请安装并部署 cbot Wallet Desk v1.1.2：先读取 https://raw.githubusercontent.com/Clorisfj/cbot-wallet/v1.1.2/docs/INSTALL.agent.md ，按说明检查系统、自动安装缺失环境、安装看板并启动后台、核验健康接口并打开页面。请直接完成可自动执行的步骤，只在系统必须由我授权时提示。保留已有钱包和配置，不登录、不签名、不导出凭据，不开放公网端口。完成后告诉我访问地址及如何停止。我会在页面“钱包管理”添加监控地址。
 ```
 
 不必先装 Node、npm 或 Git。引导脚本复用符合要求的 Node，否则安装官方 Node 24.11.0 便携环境并核对官方 SHA256。Windows 默认创建桌面与登录启动快捷方式；macOS/Linux 启动后台，agent 可按指南配置用户登录自启。受限系统、缺失系统下载/解压工具或管理员策略可能仍需系统授权。云端 agent 部署在云主机，需私有隧道访问本机回环地址。

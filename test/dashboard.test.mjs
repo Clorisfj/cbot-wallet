@@ -120,6 +120,21 @@ test('watch-only wallet updates new tokens, exact balances, history and NFT inde
   const again = await collect({ address: a, name: 'Watch' }, result, { config: { refreshMinutes: 5 }, walletCount: 1, network });
   assert.equal(coreReads,1); assert.equal(again.balanceAt,rpcBefore); assert.equal(methods.length, 4); assert.equal(again.historyAt, result.historyAt);
 });
+test('known token balances update before discovery is due, remove sold holdings and retain failures', async () => {
+  const at = new Date().toISOString(), future = new Date(Date.now()+3600000).toISOString();
+  const previous = { balanceAt:at,balanceNextAt:future,assetsNextAt:future,historyNextAt:future,nftNextAt:future,handle:'Known',handleAt:at,
+    otherBalanceAt:at,balances:[{address:token,symbol:'FRESH',decimals:18,balance:'12',at,price:2,priceAt:at}] };
+  let reads=0;
+  const network={hasAnkr:false,call:async(to,data)=>{assert.equal(to,token);assert.ok(data.startsWith('0x70a08231'));reads++;return '0x0';},rpc:async()=>assert.fail('Unscheduled core call')};
+  const result=await collect({address:a,name:'Watch'},previous,{config:{refreshMinutes:5},walletCount:1,network});
+  assert.equal(reads,1);assert.equal(result.assetsNextAt,future);assert.equal(result.balances[0].balance,'0');assert.equal(tokenVisible(result.balances[0],false),false);
+  const again=await collect({address:a,name:'Watch'},result,{config:{refreshMinutes:5},walletCount:1,network});
+  assert.equal(reads,1);
+  const failed=await collect({address:a,name:'Watch'},previous,{config:{refreshMinutes:5},walletCount:1,network:{...network,call:async()=>{throw Object.assign(Error('429'),{retryAt:Date.now()+3600000});}}});
+  assert.equal(failed.balances[0].balance,'12');assert.equal(failed.balances[0].at,at);assert.equal(failed.balances[0].verificationFailed,true);
+  assert.ok(Date.parse(failed.tokenBalancesNextAt)>Date.now()+3500000);
+});
+
 test('duplicate public hashes merge and unsafe NFT metadata stays inert', () => {
   const row = { from: a, to: b, timestamp: Math.floor(Date.now() / 1000), hash };
   assert.equal(publicHistoryRows([row,row], { operations: [] }, a).length, 1);

@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 let state = { wallets: [] }, tab = 'history', polling = false, page = 0, lastPayload = '', offline = false, requesting = false, toastTimer;
 const pageSize = 10;
 let hideSmall = localStorage.getItem('cbot.hideSmall') !== 'false';
+const tokensOld = w => (w.balances || []).some(b => b.address && (!fresh(b.at || w.otherBalanceAt) || b.verificationFailed));
 const publicMinutes = () => Math.max(state.publicRefreshMinutes || 30, state.settings?.refreshMinutes || 30);
 const fresh = at => !stale(at, Date.now(), ((state.settings?.refreshMinutes || 30) + 3) * 60000);
 const short = value => value ? value.slice(0, 6) + '…' + value.slice(-4) : '—';
@@ -77,7 +78,7 @@ function renderWallets() {
     inspect.addEventListener('click', () => { $('wallet-filter').value = w.id; page = 0; renderDetail(); $('assets').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); });
     bottom.append(el('span', '', (w.nftAt ? (w.nfts?.length || 0) + ' 项 NFT' : 'NFT 待获取') + ' · ' + (w.transactions?.length || 0) + ' 笔近期交易'), inspect);
     const sources = el('div', 'source-status');
-    sources.append(source('余额', w.balanceAt), source(w.historySource === 'public' ? '交易 · 公开索引' : '交易', w.historyAt, false, w.historySource === 'public' ? (publicMinutes() + 3) * 60000 : 10 * 60000), source('NFT', w.nftAt, w.nftPartial));
+    sources.append(source('基础余额', w.balanceAt, false, ((state.settings?.refreshMinutes || 30) + 3) * 60000), source('代币余额', w.otherBalanceAt, tokensOld(w), ((state.settings?.refreshMinutes || 30) + 3) * 60000), source(w.historySource === 'public' ? '交易 · 公开索引' : '交易', w.historyAt, false, w.historySource === 'public' ? (publicMinutes() + 3) * 60000 : 10 * 60000), source('NFT', w.nftAt, w.nftPartial));
     card.append(top, address, amounts, bottom);
     const infoPanel = el('details', 'wallet-errors'); infoPanel.dataset.key = w.id + '-status'; infoPanel.append(el('summary', '', '数据状态'), sources); card.append(infoPanel);
     if (w.historySource === 'public') {
@@ -154,7 +155,7 @@ function renderBalances(wallets, query) {
     const wallet = el('td', 'wallet-tag ' + w.themeClass, handle(w));
     const at = b.at || (b.address === '' || b.address?.toLowerCase() === '0x55d398326f99059ff775485246999027b3197955' ? w.balanceAt : w.otherBalanceAt);
     wallet.append(el('small', '', '数量更新 · ' + relative(at)));
-    const amount = el('td', 'exact-balance' + (stale(at) ? ' cached-value' : ''), b.balance);
+    const amount = el('td', 'exact-balance' + (!fresh(at) || b.verificationFailed ? ' cached-value' : ''), b.balance);
     if (b.address === '' && b.symbol === 'BNB') amount.append(equivalent(b.balance, w.balanceAt));
     const value = b.price == null ? null : Number(b.balance) * b.price;
     const price = el('td', '', value == null || !Number.isFinite(value) ? '未报价 · 不计入估值' : '$' + (value > 0 && value < .01 ? value.toPrecision(3) : value.toFixed(2)));
@@ -203,7 +204,7 @@ function renderDetail() {
   if (tab === 'nfts') counts.nfts = renderNfts(wallets, query);
   $('result-count').textContent = (hasFilters() ? '筛选结果 · ' : '全部记录 · ') + counts[tab] + (tab === 'history' ? ' 笔交易' : tab === 'balances' ? ' 项代币' : ' 项 NFT');
   const key = tab === 'history' ? 'historyAt' : tab === 'balances' ? 'balanceAt' : 'nftAt';
-  $('data-age').textContent = wallets.some(w => (tab === 'history' ? historyStale(w) : stale(w[key])) || (tab === 'nfts' && w.nftPartial)) ? '含缓存或待核验数据 · 以各项时间为准' : tab === 'history' && wallets.some(w => w.historySource === 'public') ? '公开索引约' + publicMinutes() + '分钟更新 · 非完整历史账本' : '北京时间 · 链上数据可能存在延迟';
+  $('data-age').textContent = wallets.some(w => (tab === 'history' ? historyStale(w) : tab === 'balances' ? !fresh(w.balanceAt) || tokensOld(w) : stale(w[key])) || (tab === 'nfts' && w.nftPartial)) ? '含缓存或待核验数据 · 以各项时间为准' : tab === 'history' && wallets.some(w => w.historySource === 'public') ? '公开索引约' + publicMinutes() + '分钟更新 · 非完整历史账本' : '北京时间 · 链上数据可能存在延迟';
   for (const details of document.querySelectorAll('#assets details')) if (opened.has(details.dataset.key)) details.open = true;
 }
 function render() {
@@ -241,9 +242,9 @@ function render() {
   if (offline) messages.push('本地服务未连接，已保留页面数据。请通过桌面看板快捷方式重新启动。');
   if (state.notice) messages.push(state.notice);
   if (state.quoteError) messages.push(state.bnbQuote ? 'BNB 换算报价未更新，保留缓存报价。' : 'BNB/USDT 报价暂不可用，链上 BNB 数量正常显示。');
-  if (state.wallets.some(w => !fresh(w.balanceAt) || (w.errors || []).length)) messages.push('部分数据较旧，黄色数值及分项时间可供核对；刷新成功后会自动更新。');
+  if (state.wallets.some(w => !fresh(w.balanceAt) || tokensOld(w) || (w.errors || []).length)) messages.push('部分数据较旧，黄色数值及分项时间可供核对；刷新成功后会自动更新。');
   $('notice').hidden = !messages.length; $('notice').textContent = messages.join(' ');
-  $('source-plan').textContent = state.settings?.ankrConfigured ? '余额 / 索引 · ' + state.settings.refreshMinutes + '分钟' : '余额 · ' + (state.settings?.refreshMinutes || 30) + '分钟 / 公共索引 · ' + publicMinutes() + '分钟';
+  $('source-plan').textContent = state.settings?.ankrConfigured ? '余额 / 索引 · ' + state.settings.refreshMinutes + '分钟' : '已知余额 · ' + (state.settings?.refreshMinutes || 30) + '分钟 / 代币发现 · ' + publicMinutes() + '分钟';
   const opened = new Set([...document.querySelectorAll('#wallets details[open]')].map(d => d.dataset.key));
   renderWallets(); renderDetail();
   for (const details of document.querySelectorAll('#wallets details')) if (opened.has(details.dataset.key)) details.open = true;
