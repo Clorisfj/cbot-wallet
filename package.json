@@ -1,0 +1,12 @@
+{
+  "name": "cbot-wallet",
+  "version": "1.0.0",
+  "description": "Local, read-only BSC wallet dashboard for people and AI agents.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=24.5" },
+  "bin": { "cbot-wallet": "bin/cbot-wallet.mjs" },
+  "scripts": { "start": "node --use-env-proxy server.mjs", "test": "node --test test/*.test.mjs", "demo": "node --use-env-proxy server.mjs --demo" },
+  "files": ["bin", "lib", "public", "server.mjs", "skills", "README.md", "LICENSE", "docs"],
+  "keywords": ["cbot", "bsc", "wallet", "dashboard", "agent", "read-only"]
+}

@@ -1,0 +1,13 @@
+node_modules/
+.local/
+.runtime/
+.env
+.env.*
+!.env.example
+*.log
+*.zip
+*.tgz
+config.json
+secrets.json
+session.json
+.DS_Store
