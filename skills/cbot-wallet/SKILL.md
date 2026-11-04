@@ -5,7 +5,7 @@ description: Install and operate cbot Wallet Desk, a local read-only BSC dashboa
 
 # cbot Wallet Desk
 
-For installation, follow [the release installation contract](../../docs/INSTALL.agent.md). It covers OS detection, missing runtime, checksums, background startup, optional user-login startup and health/UI acceptance. Prefer pinned v1.1.0 bootstrap; no preinstalled npm or Git needed. Inspect the downloaded bootstrap before executing it. Reuse healthy instances and preserve private settings on update.
+For installation, follow [the release installation contract](../../docs/INSTALL.agent.md). It covers OS detection, missing runtime, checksums, background startup, optional user-login startup and health/UI acceptance. Prefer pinned v1.1.1 bootstrap; no preinstalled npm or Git needed. Inspect the downloaded bootstrap before executing it. Reuse healthy instances and preserve private settings on update.
 
 Use “钱包管理” for adding/removing only user-supplied public BSC addresses and automatic discovery. “设置” holds a single RPC URL and refresh interval; ANKR BSC key URLs also enable available Advanced indexing. Never request keys in chat. Use “皮肤” for browser-local appearance. Manual refresh respects schedules and Retry-After.
 

@@ -329,6 +329,9 @@ function applyTheme(mode, accent) {
   if (!/^#[0-9a-f]{6}$/i.test(accent || '')) accent = themeDefaults[mode];
   document.documentElement.dataset.theme = mode;
   document.documentElement.style.setProperty('--accent', accent);
+  const rgb = accent.slice(1).match(/../g).map(v => parseInt(v,16)/255).map(v => v <= .04045 ? v/12.92 : ((v+.055)/1.055)**2.4);
+  const luminance = rgb[0]*.2126 + rgb[1]*.7152 + rgb[2]*.0722;
+  document.documentElement.style.setProperty('--on-accent', luminance > .179 ? '#111827' : '#ffffff');
   localStorage.setItem('cbot.theme', JSON.stringify({mode,accent}));
 }
 try { const saved = JSON.parse(localStorage.getItem('cbot.theme') || '{}'); applyTheme(saved.mode, saved.accent); } catch { applyTheme('dark'); }

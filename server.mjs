@@ -58,7 +58,7 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
   }
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const origins = new Set([`http://127.0.0.1:${port}`, `http://localhost:${port}`]);
-  const files = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/view.mjs': ['view.mjs', 'text/javascript'], '/style.css': ['style.css', 'text/css'], '/logo.svg': ['logo.svg', 'image/svg+xml'] };
+  const files = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/view.mjs': ['view.mjs', 'text/javascript'], '/style.css': ['style.css', 'text/css'], '/logo.png': ['logo.png', 'image/png'] };
   let saving = false;
   const server = http.createServer(async (req, res) => {
     const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
@@ -90,7 +90,7 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
       return;
     }
     if (req.method !== 'GET') return send(405, { error: 'Read-only dashboard' });
-    if (path === '/api/health') return send(200, { app: 'wallet-desk', product: 'cbot-wallet', version: '1.1.0', demo, pid: process.pid, instance });
+    if (path === '/api/health') return send(200, { app: 'wallet-desk', product: 'cbot-wallet', version: '1.1.1', demo, pid: process.pid, instance });
     if (path === '/api/state') return send(200, { ...state, settings: settingsForBrowser(config, demo ? state.wallets : profiles()), usage: usageEstimate(config, state.wallets.length, state.wallets.reduce((n,w) => n + (w.balances || []).filter(b => b.address).length, 0)),
       publicRefreshMinutes: publicInterval(Math.max(1, state.wallets.length)) / 60000, demo });
     if (!files[path]) return send(404, { error: 'Not found' });

@@ -1,3 +1,9 @@
+## v1.1.1 — 2026-11-04 — Original CBOT branding and clearer actions
+
+- Reused the original CBOT orange/white logo for header and favicon.
+- Added accent-tinted fills and stronger outlines to actionable controls across skins; primary text adapts to accent contrast.
+- Updated the GitHub synthetic dashboard screenshot. Validation: 14 tests passed; default and light skins visually checked using synthetic data; logo matches the original source file.
+
 # v1.1.0 — 2026-11-04
 
 - Added agent bootstrap instructions and checksum-verified portable Node setup; no npm/Git prerequisites.
