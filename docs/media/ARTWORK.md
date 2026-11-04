@@ -1,7 +1,9 @@
-# Sharing artwork
+# Sharing artwork — v1.2.0
 
-`dashboard-demo.png` is an actual browser screenshot of synthetic demo mode, with no participant cache or real personal wallet information. `social-card.png` is a promotional illustration generated using the built-in ImageGen tool, with that screenshot as the only visual reference. It is not evidence of real balances or live transactions.
+`social-card.png` is a landscape social cover generated with the built-in ImageGen tool on2026-11-04. The headline is exactly “币安agentic钱包看板”, with a line break after agentic. It uses the original orange/white horned-C CBOT logo from `public/logo.png` and the current `dashboard-demo.png` synthetic screenshot as references.
 
-Final generation brief: one polished landscape social launch graphic for “cbot Wallet Desk”; charcoal-blue surfaces, coral-orange cbot mark and restrained mint accents. Large left title “cbot / Wallet Desk”, subtitle “Your local onchain desk.”, labels “READ ONLY / LOCAL FIRST / AGENT READY”, footer “BSC • MIT Open Source”, URL “github.com/Clorisfj/cbot-wallet”. Right side: a floating dashboard card based on the synthetic screenshot, retaining the DEMO banner. Caption “Demo data • No signatures required”. No Binance/Ankr logos, endorsements, financial performance promises or invented signing/trading features.
+Composition: dark charcoal, restrained orange glow and mint accents; CBOT Wallet Desk wordmark; multi-wallet/reference-value/sorting features; one-prompt agent installation; local read-only/no-signature labels; v1.2.0, MIT and repository URL. It explicitly says this is not an official Binance product and the UI uses demo data. No Binance logo or endorsement is included.
 
-The generated UI inset is illustrative; use the original demo screenshot for exact interface inspection.
+The floating interface is a generated promotional illustration. Use `dashboard-demo.png`, the actual synthetic browser screenshot, to inspect exact interface details. Neither asset depicts personal wallet balances or financial performance. Current default NFT sources generally lack reliable appraisals; no claim of complete valuation coverage is made.
+
+Generated original retained outside the repository; the final project asset is stored here. Replaces the prior v1.0 artwork. Sharing copy is in `../SHARE.zh-CN.md`.

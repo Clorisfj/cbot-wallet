@@ -1,33 +1,42 @@
-# 分享文案
+# v1.2.0 分享文案与封面
 
-以下为草稿，需仓库实际发布后再使用。不会自动发推。配图：[social-card.png](media/social-card.png)；界面截图使用合成数据，非收益展示。
+素材已按当前版本更新，供手动发布，不会自动发推。
 
-## 中文
+- [下载横版封面 PNG](media/social-card.png)
+- 封面大标题：**币安agentic钱包看板**
+- 使用原版 CBOT 标志，右侧为合成演示界面的宣传插图，不是真实钱包或收益。
+- [查看实际合成界面截图](media/dashboard-demo.png)
 
-把自用看板开源了：cbot Wallet Desk v1.1 🟠
+## 中文主推文
 
-BSC 多钱包只读看板，零余额自动隐藏，小额持仓可切换；支持公共 API、自定义 RPC 和 ANKR。
+把自用工具开源了：币安agentic钱包看板 🟠
 
-本地运行，不签名、不交易。复制 README 中的一段指令给你的 AI agent，缺失环境与部署一起完成。
+多钱包资产一页看：代币、交易、NFT，支持参考估值、小额隐藏、价值/时间排序和换肤。
 
-新增钱包管理、自选皮肤、统一 RPC 设置及刷新消耗预估。
+本地只读，无需签名。复制一段指令给 AI Agent，环境与部署一起完成。
 
 MIT 开源👇
 https://github.com/Clorisfj/cbot-wallet
 
+## 首条评论：安装与边界
+
+怎么用：打开仓库 README，把安装指令复制给有终端权限的 AI Agent。它会检查环境、安装缺失运行环境并部署；系统授权仍需你确认。打开页面，在“钱包管理”添加公开 BSC 地址即可。
+
+当前 v1.2.0：默认公共数据源，可自定义 RPC。代币参考价补充自 DexScreener，不是可成交卖价；NFT 无可靠报价时标为未知。时间使用最近已核验转入，缺失则标为首次发现。
+
+这是个人开源项目，非币安官方产品。
+
 ## English
 
-Built a wallet desk for my agents. Now open source.
+Open-sourced my local wallet desk 🟠
 
-cbot Wallet Desk: BSC multi-wallet tracking, dust toggle, unpriced assets kept, optional Ankr. Local & read-only. No signatures. MIT.
+cbot Wallet Desk v1.2.0: BSC multi-wallet tracking, public token price references, dust toggle, value/time sorting & themes.
 
-Give the repo to your AI agent to install:
+Read-only. No signing. Give the README setup prompt to your AI agent.
+
+MIT ↓
 https://github.com/Clorisfj/cbot-wallet
 
-## 可接在评论中的补充
+## 发布建议
 
-- 不用私钥、助记词或钱包签名，填公开地址即可。
-- 默认公共接口；自定义 RPC 可选，ANKR BSC URL 自动接入索引，只在本机配置。使用前核对自身套餐与额度。
-- 公共索引偏低频，钱包越多会自动降频；不是实时交易终端或完整账本。
-- 缺失 Node 环境自动安装，教程见仓库README和docs/QUICKSTART.zh-CN.md。
-- 不代表币安或ANKR官方项目，不提供投资建议或收益承诺。
+主推文附封面；首条评论补充安装方法与数据边界。若要展示精确界面，请另附 dashboard-demo.png。不要使用个人钱包缓存截图，也不要声称覆盖全部代币/NFT报价、实时成交、收益保障或币安官方背书。

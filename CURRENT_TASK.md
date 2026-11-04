@@ -1,3 +1,9 @@
+## 2026-11-04 — v1.2.0 sharing materials
+
+- Rewrote Chinese/English launch copy and installation/data-boundary reply for current features.
+- Regenerated the landscape cover with the original CBOT logo and exact requested Chinese headline.
+- Validated headline, logo, version, repository link and synthetic-demo/non-official labels visually. No application behavior changed.
+
 ## v1.2.0 — Public prices and asset sorting
 
 - Added deduplicated, batched DexScreener pricing with exact chain/base contract matching, quote-asset and liquidity screening; timestamps, fallback cache and persistent429 deferral.
