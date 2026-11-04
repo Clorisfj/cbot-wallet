@@ -4,11 +4,13 @@
 
 ## 中文
 
-把自用看板开源了：cbot Wallet Desk 🟠
+把自用看板开源了：cbot Wallet Desk v1.1 🟠
 
 BSC 多钱包只读看板，零余额自动隐藏，小额持仓可切换；支持公共 API、自定义 RPC 和 ANKR。
 
-本地运行，不签名、不交易。把仓库链接交给你的 AI agent，即可按教程安装。
+本地运行，不签名、不交易。复制 README 中的一段指令给你的 AI agent，缺失环境与部署一起完成。
+
+新增钱包管理、自选皮肤、统一 RPC 设置及刷新消耗预估。
 
 MIT 开源👇
 https://github.com/Clorisfj/cbot-wallet
@@ -25,7 +27,7 @@ https://github.com/Clorisfj/cbot-wallet
 ## 可接在评论中的补充
 
 - 不用私钥、助记词或钱包签名，填公开地址即可。
-- 默认公共接口；ANKR Token可选，只在本机配置。使用前核对自身套餐与额度。
+- 默认公共接口；自定义 RPC 可选，ANKR BSC URL 自动接入索引，只在本机配置。使用前核对自身套餐与额度。
 - 公共索引偏低频，钱包越多会自动降频；不是实时交易终端或完整账本。
-- Node.js24.5+，教程见仓库README和docs/QUICKSTART.zh-CN.md。
+- 缺失 Node 环境自动安装，教程见仓库README和docs/QUICKSTART.zh-CN.md。
 - 不代表币安或ANKR官方项目，不提供投资建议或收益承诺。

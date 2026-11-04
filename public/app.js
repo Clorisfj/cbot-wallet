@@ -4,7 +4,8 @@ const $ = id => document.getElementById(id);
 let state = { wallets: [] }, tab = 'history', polling = false, page = 0, lastPayload = '', offline = false, requesting = false, toastTimer;
 const pageSize = 10;
 let hideSmall = localStorage.getItem('cbot.hideSmall') !== 'false';
-const publicMinutes = () => state.publicRefreshMinutes || 30;
+const publicMinutes = () => Math.max(state.publicRefreshMinutes || 30, state.settings?.refreshMinutes || 30);
+const fresh = at => !stale(at, Date.now(), ((state.settings?.refreshMinutes || 30) + 3) * 60000);
 const short = value => value ? value.slice(0, 6) + '…' + value.slice(-4) : '—';
 const number = (value, digits = 8) => {
   if (value == null || value === '' || !Number.isFinite(Number(value))) return '—';
@@ -34,7 +35,7 @@ function toast(message) {
   toastTimer = setTimeout(() => { $('toast').hidden = true; }, 2400);
 }
 function equivalent(amount, balanceAt) {
-  const value = bnbEquivalent(amount, state.bnbQuote), cached = stale(state.bnbQuote?.at) || stale(balanceAt);
+  const value = bnbEquivalent(amount, state.bnbQuote), cached = !fresh(state.bnbQuote?.at) || !fresh(balanceAt);
   const node = el('span', 'bnb-equivalent' + (cached && value != null ? ' cached-value' : ''), value == null ? '暂无 USDT 报价' : '≈ ' + (value > 0 && value < .01 ? value.toPrecision(3) : value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + ' USDT' + (cached ? ' · 缓存' : ''));
   node.title = value == null ? 'BNB/USDT 报价暂不可用' : '1 BNB ≈ ' + number(state.bnbQuote.price, 4) + ' USDT\n' + state.bnbQuote.source + '\n报价更新：' + time(state.bnbQuote.at) + '（北京时间）\n余额更新：' + time(balanceAt);
   return node;
@@ -57,16 +58,16 @@ function renderWallets() {
     w.themeClass = 'wallet-' + (index % 4 + 1);
     const card = el('article', 'wallet-card ' + w.themeClass), top = el('div', 'wallet-top'), identity = el('div', 'wallet-identity'), title = el('div');
     const status = connectionState(w);
-    title.append(el('div', 'wallet-name', handle(w)), el('small', '', w.name + ' / BSC'));
+    title.append(el('div', 'wallet-name', handle(w)));
     identity.append(el('span', 'avatar', String(index + 1).padStart(2, '0')), title);
-    top.append(identity, badge(status.label, status.tone));
+    top.append(identity); if (w.connection !== 'WATCH_ONLY') top.append(badge(status.label, status.tone));
     const address = el('div', 'address'), copy = el('button', 'copy', '复制');
     copy.setAttribute('aria-label', '复制' + w.name + '地址');
     copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(w.address); toast(w.name + '地址已复制'); } catch { toast('复制不可用，可选择完整地址手动复制'); } });
-    address.append(link(w.address, 'https://bscscan.com/address/' + w.address), copy);
+    address.append(link(short(w.address), 'https://bscscan.com/address/' + w.address, w.address), copy);
     const amounts = el('div', 'card-balances');
     for (const symbol of ['USDT', 'BNB']) {
-      const value = balance(w, symbol), block = el('div'), amount = el('strong', stale(w.balanceAt) && value != null ? 'cached-value' : '', number(value, symbol === 'BNB' ? 8 : 6));
+      const value = balance(w, symbol), block = el('div'), amount = el('strong', !fresh(w.balanceAt) && value != null ? 'cached-value' : '', number(value, symbol === 'BNB' ? 8 : 6));
       amount.title = value == null ? '余额尚未获取' : value + ' ' + symbol;
       block.append(el('small', '', symbol));
       const row = el('div', 'amount-row'); row.append(amount); if (symbol === 'BNB') row.append(equivalent(value, w.balanceAt));
@@ -77,30 +78,31 @@ function renderWallets() {
     bottom.append(el('span', '', (w.nftAt ? (w.nfts?.length || 0) + ' 项 NFT' : 'NFT 待获取') + ' · ' + (w.transactions?.length || 0) + ' 笔近期交易'), inspect);
     const sources = el('div', 'source-status');
     sources.append(source('余额', w.balanceAt), source(w.historySource === 'public' ? '交易 · 公开索引' : '交易', w.historyAt, false, w.historySource === 'public' ? (publicMinutes() + 3) * 60000 : 10 * 60000), source('NFT', w.nftAt, w.nftPartial));
-    card.append(top, address, amounts, bottom, sources);
+    card.append(top, address, amounts, bottom);
+    const infoPanel = el('details', 'wallet-errors'); infoPanel.dataset.key = w.id + '-status'; infoPanel.append(el('summary', '', '数据状态'), sources); card.append(infoPanel);
     if (w.historySource === 'public') {
       const info = el('div', 'session-info');
       info.append(link('Binplorer 公开交易索引', 'https://binplorer.com/address/' + w.address), document.createTextNode(' · 约' + publicMinutes() + '分钟更新，无需钱包登录'));
       info.title = '最近20笔已发现交易，非完整账本；下次公开索引查询不早于 ' + time(w.historyNextAt);
-      card.append(info);
+      infoPanel.append(info);
     }
-    if (w.historyNotice) card.append(el('div', 'session-info expiring', w.historyNotice));
-    if (w.tokenSource) card.append(el('div', 'session-info', '代币发现 · ' + (w.tokenSource === 'ankr' ? 'ANKR' : 'Binplorer') + (w.tokensPartial ? ' · 范围有限，未报价资产保留' : ' · 索引持仓')));
-    if (w.historySource === 'ankr') card.append(el('div', 'session-info', 'ANKR 交易索引 · 已按RPC回执核验 · 索引可能延迟'));
+    if (w.historyNotice) infoPanel.append(el('div', 'session-info expiring', w.historyNotice));
+    if (w.tokenSource) infoPanel.append(el('div', 'session-info', '代币发现 · ' + (w.tokenSource === 'ankr' ? 'ANKR' : 'Binplorer') + (w.tokensPartial ? ' · 范围有限，未报价资产保留' : ' · 索引持仓')));
+    if (w.historySource === 'ankr') infoPanel.append(el('div', 'session-info', 'ANKR 交易索引 · 已按RPC回执核验 · 索引可能延迟'));
     if (w.sessionExpires && w.connection !== 'WATCH_ONLY') {
       const remaining = Date.parse(w.sessionExpires) - Date.now(), expired = remaining <= 0;
-      card.append(el('div', 'session-info' + (remaining < 10800000 ? ' expiring' : ''), (expired ? '登录已于 ' : '登录到期 ') + time(w.sessionExpires) + (expired ? ' 失效' : '')));
+      infoPanel.append(el('div', 'session-info' + (remaining < 10800000 ? ' expiring' : ''), (expired ? '登录已于 ' : '登录到期 ') + time(w.sessionExpires) + (expired ? ' 失效' : '')));
     }
     const warnings = [...(w.errors || [])];
     if (balance(w, 'BNB') != null && Number(balance(w, 'BNB')) < .0001) warnings.push('BNB 较少，后续链上操作前请确认网络费余额。');
     if (warnings.length) {
       const errors = el('details', 'wallet-errors'); errors.dataset.key = w.id + '-errors';
       const list = el('ul'); warnings.forEach(warning => list.append(el('li', '', warning)));
-      errors.append(el('summary', '', warnings.length + ' 项数据提示 · 展开查看'), list); card.append(errors);
+      errors.append(el('summary', '', warnings.length + ' 项数据提示 · 展开查看'), list); infoPanel.append(errors);
     }
     container.append(card);
   }
-  if (!state.wallets.length) container.append(el('div', 'loading', state.refreshing ? '首次查询中，保留页面即可自动更新…' : '点击右上角“钱包与数据源”添加地址；无需连接钱包或签名。'));
+  if (!state.wallets.length) container.append(el('div', 'loading', state.refreshing ? '首次查询中，保留页面即可自动更新…' : '点击“钱包管理”添加地址；无需连接钱包或签名。'));
 }
 function assetLine(d) {
   const token = d.tokenId?.length > 14 ? d.tokenId.slice(0, 6) + '…' + d.tokenId.slice(-6) : d.tokenId;
@@ -217,9 +219,9 @@ function render() {
   for (const symbol of ['USDT', 'BNB']) {
     const total = totalBalance(state.wallets, symbol), node = $('total-' + symbol.toLowerCase());
     node.textContent = number(total, symbol === 'BNB' ? 8 : 6); node.title = total ?? '等待所选钱包余额';
-    const cached = state.wallets.some(w => stale(w.balanceAt));
+    const cached = state.wallets.some(w => !fresh(w.balanceAt));
     node.classList.toggle('cached-value', cached && total != null);
-    $(symbol.toLowerCase() === 'usdt' ? 'usdt-note' : 'bnb-note').textContent = total == null ? '等待钱包余额' : cached ? '含缓存数据 · 查看分项更新时间' : symbol === 'BNB' ? state.wallets.length + ' 个钱包 · 网络费储备' : state.wallets.length + ' 个钱包 · 代币数量';
+    $(symbol.toLowerCase() === 'usdt' ? 'usdt-note' : 'bnb-note').textContent = total == null ? '等待钱包余额' : cached ? '缓存 · 查看分项时间' : symbol === 'BNB' ? '网络费储备' : '代币数量';
   }
   const oldestBalanceAt = state.wallets.map(w => w.balanceAt).sort((a, b) => (Date.parse(a) || 0) - (Date.parse(b) || 0))[0];
   $('total-bnb-equivalent').replaceChildren(equivalent(totalBalance(state.wallets, 'BNB'), oldestBalanceAt));
@@ -227,10 +229,9 @@ function render() {
   $('total-nfts').textContent = nftReady ? state.wallets.reduce((sum, w) => sum + (w.nfts?.length || 0), 0) : '—';
   const oldNft = state.wallets.some(w => stale(w.nftAt) || w.nftPartial);
   $('total-nfts').classList.toggle('cached-value', oldNft && nftReady);
-  $('nft-note').textContent = oldNft ? '含缓存或待核验持仓 · 非全链枚举' : '已发现并核验 · 非全链枚举';
-  const connected = state.wallets.filter(w => connectionState(w).tone === 'good').length;
-  $('total-connected').replaceChildren(document.createTextNode(state.wallets.length ? String(connected) : '—'), el('em', '', ' / ' + state.wallets.filter(w => w.connection !== 'WATCH_ONLY').length));
-  $('connected-note').textContent = !state.wallets.length ? '等待会话状态' : !state.wallets.some(w => w.connection !== 'WATCH_ONLY') ? '只读观察模式 · 无需登录' : '本机已连接 / 已配置登录钱包';
+  $('nft-note').textContent = oldNft ? '部分覆盖' : '已发现持仓';
+  $('total-connected').textContent = state.wallets.length;
+  $('connected-note').textContent = '公开地址 · 无需签名';
   const busy = state.refreshing || requesting;
   $('refresh').disabled = busy; $('refresh-icon').classList.toggle('spinning', busy);
   $('refresh-label').textContent = busy ? '正在刷新' : '刷新数据';
@@ -240,9 +241,9 @@ function render() {
   if (offline) messages.push('本地服务未连接，已保留页面数据。请通过桌面看板快捷方式重新启动。');
   if (state.notice) messages.push(state.notice);
   if (state.quoteError) messages.push(state.bnbQuote ? 'BNB 换算报价未更新，保留缓存报价。' : 'BNB/USDT 报价暂不可用，链上 BNB 数量正常显示。');
-  if (state.wallets.some(w => stale(w.balanceAt) || historyStale(w) || stale(w.nftAt))) messages.push('部分数据较旧，黄色数值及分项时间可供核对；刷新成功后会自动更新。');
+  if (state.wallets.some(w => !fresh(w.balanceAt) || (w.errors || []).length)) messages.push('部分数据较旧，黄色数值及分项时间可供核对；刷新成功后会自动更新。');
   $('notice').hidden = !messages.length; $('notice').textContent = messages.join(' ');
-  $('source-plan').textContent = state.settings?.ankrConfigured ? 'ANKR · ' + state.settings.refreshMinutes + '分钟索引 / RPC余额约60秒' : '公共索引约' + publicMinutes() + '分钟 / RPC余额约60秒';
+  $('source-plan').textContent = state.settings?.ankrConfigured ? '余额 / 索引 · ' + state.settings.refreshMinutes + '分钟' : '余额 · ' + (state.settings?.refreshMinutes || 30) + '分钟 / 公共索引 · ' + publicMinutes() + '分钟';
   const opened = new Set([...document.querySelectorAll('#wallets details[open]')].map(d => d.dataset.key));
   renderWallets(); renderDetail();
   for (const details of document.querySelectorAll('#wallets details')) if (opened.has(details.dataset.key)) details.open = true;
@@ -285,30 +286,53 @@ setInterval(() => { if (!document.hidden) render(); }, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void poll(); });
 
 $('small-balances').addEventListener('change', () => { hideSmall = $('small-balances').checked; localStorage.setItem('cbot.hideSmall', String(hideSmall)); renderDetail(); });
-$('settings-open').addEventListener('click', () => {
-  const settings = state.settings || {};
-  $('wallet-config').value = (settings.wallets || []).map(w => w.name + ' | ' + w.address).join('\n');
-  $('auto-discover').checked = settings.autoDiscover !== false;
-  $('refresh-minutes').value = String(settings.refreshMinutes || 5);
-  $('ankr-token').value = ''; $('rpc-url').value = '';
-  $('clear-ankr').checked = $('clear-rpc').checked = false;
-  $('provider-status').textContent = (settings.ankrConfigured ? 'ANKR已配置（不回显Token）' : '当前未配置ANKR') + (settings.rpcConfigured ? ' · RPC: ' + settings.rpcHost : ' · 使用公共RPC');
-  const u = state.usage || {};
-  $('usage-summary').textContent = '本机本月估计消耗 ' + number(u.credits || 0, 0) + ' / 200,000,000 Credits；当前钱包数/间隔对应基础估算约 ' + number(u.estimatedPercent || 0, 1) + '%/月。分页、RPC和重试另计；不是账户账单。';
-  $('settings-error').textContent = ''; $('settings-dialog').showModal();
-});
-$('settings-close').addEventListener('click', () => $('settings-dialog').close());
-$('settings-form').addEventListener('submit', async event => {
-  event.preventDefault(); $('settings-save').disabled = true; $('settings-error').textContent = '';
+for (const button of document.querySelectorAll('[data-close]')) button.addEventListener('click', () => $(button.dataset.close).close());
+async function savePanel(kind, payload) {
+  $(kind + '-save').disabled = true; $(kind + '-error').textContent = '';
   try {
-    const wallets = $('wallet-config').value.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
-      const parts = line.split('|').map(s => s.trim()); return { name: parts.length > 1 ? parts[0] : '', address: parts.at(-1) };
-    });
-    const response = await fetch('/api/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ wallets,
-      autoDiscover: $('auto-discover').checked, refreshMinutes: Number($('refresh-minutes').value), ankrKey: $('ankr-token').value.trim(), rpcUrl: $('rpc-url').value.trim(),
-      clearAnkr: $('clear-ankr').checked, clearRpc: $('clear-rpc').checked }) });
+    const response = await fetch('/api/' + kind, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(10000) });
     const result = await response.json(); if (!response.ok) throw Error(result.error || '保存失败');
-    $('ankr-token').value = ''; $('rpc-url').value = ''; $('settings-dialog').close(); toast('已保存，数据将自动更新'); await poll();
-  } catch (e) { $('settings-error').textContent = e.message; }
-  finally { $('settings-save').disabled = false; }
+    $(kind + '-dialog').close(); toast('已保存'); await poll();
+  } catch (e) { $(kind + '-error').textContent = e.message; }
+  finally { $(kind + '-save').disabled = false; }
+}
+function walletRow(wallet = {}) {
+  const row = el('div', 'wallet-edit'), name = el('input'), address = el('input'), remove = el('button', 'secondary', '删除');
+  name.value = wallet.name || ''; name.placeholder = '钱包名称'; name.maxLength = 60; name.setAttribute('aria-label', '钱包名称');
+  address.value = wallet.address || ''; address.placeholder = '0x 钱包地址'; address.required = true; address.pattern = '0x[0-9a-fA-F]{40}'; address.setAttribute('aria-label', '钱包地址');
+  remove.type = 'button'; remove.addEventListener('click', () => row.remove()); row.append(name, address, remove); $('wallet-list').append(row);
+}
+$('wallets-open').addEventListener('click', () => {
+  $('wallet-list').replaceChildren(); (state.settings?.wallets || []).forEach(walletRow);
+  $('auto-discover').checked = state.settings?.autoDiscover !== false; $('wallets-error').textContent = ''; $('wallets-dialog').showModal();
 });
+$('wallet-add').addEventListener('click', () => walletRow());
+$('wallets-form').addEventListener('submit', event => {
+  event.preventDefault(); const wallets = [...document.querySelectorAll('.wallet-edit')].map(row => ({ name: row.children[0].value.trim(), address: row.children[1].value.trim() }));
+  void savePanel('wallets', { wallets, autoDiscover: $('auto-discover').checked });
+});
+$('settings-open').addEventListener('click', () => {
+  const settings = state.settings || {}; $('rpc-url').value = ''; $('clear-rpc').checked = false;
+  $('refresh-minutes').value = String(settings.refreshMinutes || 30);
+  $('provider-status').textContent = settings.rpcConfigured ? '已配置：' + settings.rpcHost + (settings.ankrConfigured ? ' · 索引已启用' : '') : settings.ankrConfigured ? '已保留旧版索引配置' : '当前使用公共节点';
+  const summary = $('usage-summary'); summary.replaceChildren();
+  const table = el('table'), head = el('tr'); ['间隔', '索引间隔', 'RPC/月≈', '索引/月≈', 'ANKR额度≈'].forEach(t => head.append(el('th', '', t))); table.append(head);
+  for (const r of state.usage?.intervals || []) { const row = el('tr'); [r.minutes + '分', r.indexedMinutes + '分', number(r.rpc,0), number(r.index,0), r.credits ? (r.credits / 2000000).toFixed(1) + '%' : '—'].forEach(t => row.append(el('td','',t))); table.append(row); }
+  summary.append(table); $('settings-error').textContent = ''; $('settings-dialog').showModal();
+});
+$('settings-form').addEventListener('submit', event => {
+  event.preventDefault(); void savePanel('settings', { rpcUrl: $('rpc-url').value.trim(), clearRpc: $('clear-rpc').checked, refreshMinutes: Number($('refresh-minutes').value) });
+});
+const themeDefaults = { dark: '#ff8057', ocean: '#45d9c5', light: '#2857c7' };
+function applyTheme(mode, accent) {
+  if (!Object.hasOwn(themeDefaults, mode)) mode = 'dark';
+  if (!/^#[0-9a-f]{6}$/i.test(accent || '')) accent = themeDefaults[mode];
+  document.documentElement.dataset.theme = mode;
+  document.documentElement.style.setProperty('--accent', accent);
+  localStorage.setItem('cbot.theme', JSON.stringify({mode,accent}));
+}
+try { const saved = JSON.parse(localStorage.getItem('cbot.theme') || '{}'); applyTheme(saved.mode, saved.accent); } catch { applyTheme('dark'); }
+$('theme-open').addEventListener('click', () => { $('theme-mode').value = document.documentElement.dataset.theme; $('theme-accent').value = document.documentElement.style.getPropertyValue('--accent'); $('theme-dialog').showModal(); });
+$('theme-mode').addEventListener('change', () => { $('theme-accent').value = themeDefaults[$('theme-mode').value]; });
+$('theme-form').addEventListener('submit', event => { event.preventDefault(); applyTheme($('theme-mode').value, $('theme-accent').value); $('theme-dialog').close(); });
+$('theme-reset').addEventListener('click', () => { applyTheme('dark'); $('theme-dialog').close(); });

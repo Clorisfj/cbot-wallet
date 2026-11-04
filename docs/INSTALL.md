@@ -1,6 +1,6 @@
 # Installation and operations
 
-Node.js **24.5+** and npm are required. No database, bundler or runtime npm dependencies.
+For automated deployment give your agent [this installation contract](INSTALL.agent.md). The bootstrap installs a missing Node runtime automatically, without npm or Git. Manual source use requires Node.js **24.5+**. No database, bundler or runtime npm dependencies.
 
 ## Install
 
@@ -32,7 +32,7 @@ Update: stop the current background instance, run the new version's installer, t
 
 `CBOT_HOME` overrides the settings directory. `CBOT_PORT` overrides port48765. `ANKR_API_KEY` provides the optional Advanced API token. `CBOT_BAW_CLI` can point to an already-installed official `@binance/agentic-wallet/dist/index.js`.
 
-The browser settings panel handles public addresses, RPC and ANKR configuration. For an existing custom Binance session profile, locally add optional `sessionDir` and `credentialAccount` fields to a wallet entry in `settings.json`; do not publish that file. Never copy a session from another device. The credential account is only an existing OS credential alias, not a token. Normal watch users do not need these fields.
+“钱包管理” handles addresses and automatic detection; “设置” handles the single BSC RPC URL and refresh interval. An ANKR BSC URL containing its key enables Advanced indexing; the legacy ANKR_API_KEY remains supported. For an existing custom Binance session profile, locally add optional `sessionDir` and `credentialAccount` fields to a wallet entry in `settings.json`; do not publish that file. Never copy a session from another device. The credential account is only an existing OS credential alias, not a token. Normal watch users do not need these fields.
 
 Only the official wallet's read commands are available to the adapter. It never runs auth/sign/send/approve/swap or arbitrary commands. Detection is best effort and does not install or log into Binance Wallet for you.
 

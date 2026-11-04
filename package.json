@@ -1,6 +1,6 @@
 {
   "name": "cbot-wallet",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Local, read-only BSC wallet dashboard for people and AI agents.",
   "type": "module",
   "license": "MIT",

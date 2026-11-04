@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import http from 'node:http';
 const temp = await mkdtemp(join(tmpdir(), 'cbot-wallet-test-'));
 process.env.CBOT_HOME = temp;
-const { validateConfig, mergeBrowserSettings, settingsForBrowser, publicInterval, saveConfig } = await import('../lib/config.mjs');
+const { validateConfig, mergeBrowserSettings, mergeWalletSettings, providerKey, settingsForBrowser, publicInterval, saveConfig } = await import('../lib/config.mjs');
 const { makeNetwork, usageEstimate, retryAt, restoreBackoff } = await import('../lib/network.mjs');
 const { tokenVisible, totalBalance, connectionState } = await import('../public/view.mjs');
 const { units, collect, USDT, safeMetadata, isApprovalCall } = await import('../lib/data.mjs');
@@ -40,6 +40,26 @@ test('configuration supports multiple addresses; credentials never appear in bro
   assert.throws(() => validateConfig({ wallets: [{ address: a }, { address: a }] }));
   for (const rpcUrl of ['http://example.com', 'https://127.0.0.1', 'https://user:password@example.com']) assert.throws(() => validateConfig({ wallets: [], rpcUrl }));
 });
+test('wallet management preserves profiles, persists discovered exclusions and isolates settings', () => {
+  const config = validateConfig({wallets:[{address:a,sessionDir:'/private'}]});
+  const removed = mergeWalletSettings(config,{wallets:[],autoDiscover:true},[{address:a},{address:b}]);
+  assert.deepEqual(removed.excludedAddresses,[a,b]);
+  const restored = mergeWalletSettings(removed,{wallets:[{address:b,name:'Back'}]},[]);
+  assert.deepEqual(restored.excludedAddresses,[a]);
+  const settings = mergeBrowserSettings(config,{wallets:[],autoDiscover:false,excludedAddresses:[a],refreshMinutes:10});
+  assert.equal(settings.wallets.length,1); assert.equal(settings.autoDiscover,true); assert.deepEqual(settings.excludedAddresses,[]);
+  assert.equal(mergeWalletSettings(config,{wallets:[{address:a,name:'New'}]},[]).wallets[0].sessionDir,'/private');
+});
+test('ANKR BSC URL derives key privately; cost follows provider and holdings', () => {
+  const key='x'.repeat(64), config=validateConfig({wallets:[],rpcUrl:'https://rpc.ankr.com/bsc/'+key});
+  assert.equal(providerKey(config),key); assert.equal(settingsForBrowser(config).ankrConfigured,true);
+  assert.equal(JSON.stringify(settingsForBrowser(config)).includes(key),false);
+  assert.equal(providerKey({...config,rpcUrl:'https://example.com/bsc/'+key}), '');
+  const rows=usageEstimate(config,2,100).intervals;
+  assert.ok(rows[0].credits>rows[4].credits); assert.ok(rows[0].credits>usageEstimate(config,2,2).intervals[0].credits);
+  assert.equal(usageEstimate({refreshMinutes:30},2).intervals[0].credits,0);
+});
+
 test('public refresh scales within budget; ANKR monthly estimate includes wallet count', () => {
   for (const count of [1,2,10,100]) assert.ok(count * 3 * 10080 / (publicInterval(count) / 60000) <= 2400);
   assert.equal(usageEstimate({ refreshMinutes: 5 }, 2).estimatedMonthlyCredits, 48384000);
@@ -72,6 +92,7 @@ test('RPC write methods and wrong-chain endpoints fail closed', async () => {
   } finally { globalThis.fetch = original; }
 });
 test('watch-only wallet updates new tokens, exact balances, history and NFT index without signing', async () => {
+  let coreReads = 0;
   const methods = [], at = Math.floor(Date.now() / 1000);
   const network = { hasAnkr: true,
     advanced: async (method, params) => { methods.push(method);
@@ -81,6 +102,7 @@ test('watch-only wallet updates new tokens, exact balances, history and NFT inde
       if (method === 'ankr_getNFTsByOwner') return { assets: [] };
       assert.fail('Unexpected method');
     }, rpc: async method => {
+      if (method === 'eth_getBalance') coreReads++;
       if (method === 'eth_getBalance') return '0xde0b6b3a7640000';
       if (method === 'eth_getTransactionReceipt') return { status: '0x1', gasUsed: '0x5208', effectiveGasPrice: '0x1', logs: [] };
       if (method === 'eth_getTransactionByHash') return { from: a, to: b, input: '0x', value: '0x1' };
@@ -94,8 +116,9 @@ test('watch-only wallet updates new tokens, exact balances, history and NFT inde
   assert.equal(result.connection, 'WATCH_ONLY'); assert.equal(result.balances.find(t => t.address === token).balance, '1');
   assert.equal(result.transactions[0].verified, true); assert.equal(result.historySource, 'ankr');
   assert.equal(methods.length, 4);
+  const rpcBefore = result.balanceAt;
   const again = await collect({ address: a, name: 'Watch' }, result, { config: { refreshMinutes: 5 }, walletCount: 1, network });
-  assert.equal(methods.length, 4); assert.equal(again.historyAt, result.historyAt);
+  assert.equal(coreReads,1); assert.equal(again.balanceAt,rpcBefore); assert.equal(methods.length, 4); assert.equal(again.historyAt, result.historyAt);
 });
 test('duplicate public hashes merge and unsafe NFT metadata stays inert', () => {
   const row = { from: a, to: b, timestamp: Math.floor(Date.now() / 1000), hash };
@@ -133,6 +156,15 @@ test('HTTP serves only local data, blocks CSRF, redacts secrets, and persists co
     });
     assert.equal(hostileHost, 403);
     assert.equal((await fetch(base + '/api/health')).status, 200);
+    await new Promise(r => setTimeout(r, 30));
+    const posted = await fetch(base+'/api/settings',{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify({wallets:[{address:a}],autoDiscover:true,refreshMinutes:60})});
+    assert.equal(posted.status,200);
+    const after = await (await fetch(base+'/api/state')).json();
+    assert.equal(after.settings.wallets.length,0); assert.equal(after.settings.autoDiscover,false); assert.equal(after.settings.refreshMinutes,60);
+    await new Promise(r => setTimeout(r, 30));
+    const bad = await fetch(base+'/api/wallets',{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify({wallets:[{address:'invalid'}]})});
+    assert.equal(bad.status,400);
+
     assert.equal(JSON.parse(await readFile(join(temp, 'settings.json'), 'utf8')).ankrKey, 's'.repeat(64));
   } finally { await new Promise(r => server.close(r)); }
 });

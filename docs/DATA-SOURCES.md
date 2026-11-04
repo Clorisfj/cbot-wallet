@@ -14,7 +14,7 @@ Indexing and direct RPC solve different problems. RPC reads a known token balanc
 
 [Binplorer/Ethplorer official documentation](https://github.com/EverexIO/Ethplorer/wiki/Ethplorer-API) allows its public development `freekey`: 2 requests/sec, 20/min, 100/hour, 1000/day, 3000/week. It is not recommended by the provider for production. The app spaces requests by at least650ms, schedules at most roughly2400/week for its three per-wallet calls, and honors429 Retry-After. Two wallets use30-minute indexing; more wallets automatically reduce frequency. This budget cannot account for other applications on the same IP/key.
 
-Public BNB/USDT RPC balances update around60s. Public NFT ownership checks rotate at most12 discovered ERC721 candidates per30-minute cycle rather than scanning every NFT every minute. Discovery is partial; a full first-party NFT index requires a configured provider.
+BNB/USDT RPC balances follow the selected5/10/15/30/60-minute interval (default30). Public NFT ownership checks rotate at most12 discovered ERC721 candidates per effective index cycle rather than scanning every NFT every minute. Discovery is partial; a full first-party NFT index requires a configured provider.
 
 ## ANKR Freemium
 
@@ -35,3 +35,9 @@ Pagination, additional retries and configured ANKR RPC calls add to these figure
 The dashboard shows a locally counted estimate, retained in its cache, not the official provider invoice. Rates above are estimates from published docs; they are not a guarantee that a particular user's key has all methods enabled. ANKR integration is fixture-tested; live acceptance requires that user's private key configuration and provider response.
 
 Reference prices are USD-based and displayed as approximately USDT. Unpriced tokens remain visible and are excluded from reference valuations. Cached prices are marked. The UI does not imply that an asset is safe, liquid or sellable.
+
+## v1.1 settings estimates
+
+The settings table is provider-aware: per30 days, core RPC calls ≈ wallets ×2 ×43200/selected minutes; token verification and public NFT calls ≈ (2 × known ERC20 records +12 × wallets) ×43200/effective index minutes. Index calls ≈ wallets ×(4 with ANKR,3 public) ×43200/effective index minutes. Public index interval is max(selected, wallet-count quota floor). ANKR RPC requests use200 credits and Advanced700; other providers display request counts without inventing a credit allowance. ERC20 decimals caching can reduce actual calls; pagination, receipt reads, chain checks, first scans and retries can increase them. This is a planning estimate, not a hard upper bound. The old Advanced-only examples above exclude RPC verification and must not be treated as total use when ANKR also supplies RPC.
+
+A single authenticated `https://rpc.ankr.com/bsc/YOUR_KEY` URL configures BSC RPC and derives the same key for Advanced indexing. Arbitrary RPC URLs cannot supply indexing. Old private `ankrKey` / ANKR_API_KEY configurations remain compatible; replacing/clearing the saved source removes the legacy stored key, while an environment variable must be cleared in its launching environment.

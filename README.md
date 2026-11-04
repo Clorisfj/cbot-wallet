@@ -1,71 +1,49 @@
 # cbot Wallet Desk
 
-**Your local, read-only BSC wallet desk. One address or a whole portfolio.**
+**本地、只读的 BSC 多钱包看板。把下面一段话发给你的 AI agent，环境和部署一起完成。**
 
-No wallet connection, signature or private key is needed for watch addresses. Default public data sources, optional ANKR Advanced API, exact token balances and transparent refresh timestamps. MIT licensed. Not affiliated with Binance or Ankr.
+无需连接钱包、签名或私钥。支持 Codex、Claude Code、OpenClaw 等具有终端和联网能力的 agent。MIT 开源，非 Binance / ANKR 官方产品。
 
-![Synthetic demo — not real balances](docs/media/dashboard-demo.png)
+![合成演示数据，不是真实钱包](docs/media/dashboard-demo.png)
 
-## Start in one command
+## 复制给你的 agent
 
-Install **Node.js 24.5+**, then run:
-
-```sh
-npx --yes --package=https://github.com/Clorisfj/cbot-wallet/archive/refs/tags/v1.0.0.tar.gz cbot-wallet install
+```text
+请安装并部署 cbot Wallet Desk v1.1.0：先读取 https://raw.githubusercontent.com/Clorisfj/cbot-wallet/v1.1.0/docs/INSTALL.agent.md ，按说明检查系统、自动安装缺失环境、安装看板并启动后台、核验健康接口并打开页面。请直接完成可自动执行的步骤，只在系统必须由我授权时提示。保留已有钱包和配置，不登录、不签名、不导出凭据，不开放公网端口。完成后告诉我访问地址及如何停止。我会在页面“钱包管理”添加监控地址。
 ```
 
-Open **http://127.0.0.1:48765/** → **钱包与数据源** → add a name and a public BSC address per line. Bookmark the URL. Closing the browser does not stop the background server.
+不必先装 Node、npm 或 Git。引导脚本复用符合要求的 Node，否则安装官方 Node 24.11.0 便携环境并核对官方 SHA256。Windows 默认创建桌面与登录启动快捷方式；macOS/Linux 启动后台，agent 可按指南配置用户登录自启。受限系统、缺失系统下载/解压工具或管理员策略可能仍需系统授权。云端 agent 部署在云主机，需私有隧道访问本机回环地址。
 
-Windows login autostart + desktop shortcut: append `--autostart` to the installation command. macOS/Linux use the same background installer; login autostart is a manual OS setup, not installed automatically. The computer must remain on. A cloud agent's localhost is on its cloud machine: open through a private SSH tunnel, never expose the service to the public internet.
+## 为什么用它
 
-Already cloned the repository? `npm start` runs in the foreground; `node bin/cbot-wallet.mjs install` installs a persistent local copy and starts it. No runtime npm dependencies or build step.
+- **一个到多个钱包自适应**：在“我的钱包 → 钱包管理”添加、改名或删除公开 BSC 地址；删除自动识别的钱包不会重新出现。
+- **余额更醒目**：BNB / USDT 优先展示，来源和会话细节折叠；交易、代币、NFT 在同一页筛选。
+- **减少小额干扰**：自动隐藏零余额，可切换隐藏估值低于 0.1 USDT 的持仓；未报价资产保留。
+- **环境一起安装**：无需数据库、构建步骤或运行时 npm 依赖；启动后可保存浏览器书签。
+- **免费默认，按需增强**：公共节点直接用；设置中可填自定义 BSC RPC，ANKR BSC 密钥 URL 自动接入索引，无需重复填写 Token。
+- **刷新成本可见**：5 / 10 / 15 / 30 / 60 分钟，默认推荐30分钟；按钱包数、已发现代币估算请求消耗。公共索引对多钱包自动降频。
+- **皮肤可选**：午夜、深海、晴空，可自选强调色，保存在当前浏览器。
+- **本地只读**：无签名、转账、交易或授权入口；数据源故障保留缓存及更新时间，不将失败伪装成零余额。
 
-## Ask your AI agent
+## 使用
 
-Send it this repository URL with:
+打开 http://127.0.0.1:48765/ → **钱包管理** 添加公开地址。右上角 **设置** 管理 RPC 与刷新间隔，**皮肤** 调整外观。关闭页面不停止后台；电脑仍须开机。
 
-> Install cbot Wallet Desk following `skills/cbot-wallet/SKILL.md`. Keep it local and read-only. Add the public BSC addresses I provide. Do not sign in, sign out, request keys, or expose a public port.
+普通 RPC 查询已知合约，索引用于发现合约，二者不等价。公共索引覆盖不完整；交易每钱包最多20笔已发现记录，NFT 为部分发现，参考估值不代表可卖出价格。ANKR Advanced 需对应账户开通，未保证所有密钥套餐均可用。
 
-Agents supporting the Skills installer can also use:
+配置与缓存保存在 `~/.cbot-wallet/`（可用 `CBOT_HOME` 覆盖），不在仓库。完整数据源 URL 只保存在本机且不回显，应用不负责加密，请保护系统账户及备份。数据源会收到查询地址与 IP，NFT 图片可能来自第三方 HTTPS 站点。不要上传真实配置或钱包截图。
 
-```sh
-npx skills add Clorisfj/cbot-wallet --skill cbot-wallet
-```
-
-The skill is plain Markdown and works as guidance for Codex, Claude Code, OpenClaw and other agents with terminal access; a tool-specific plugin is not required. The install command above is the direct application installer.
-
-## What you get
-
-- Any configured wallet count (up to 100), adaptive cards, filters, recent transactions and discovered NFTs.
-- Zero token balances hidden. A persistent **hide holdings below 0.1 USDT reference value** switch. Unpriced assets stay visible.
-- Token discovery independent of Binance login, with on-chain balance checks. No guarantee of every chain asset or spam token.
-- Optional existing Binance Agentic Wallet detection. Sessions are never exported; the dashboard does not initiate login/signout or change trade permissions.
-- Public BSC RPC and Binplorer by default; optional HTTPS BSC RPC and ANKR token configured locally.
-- Per-source freshness, cached-data warnings, RPC-verified transaction receipts and estimated ANKR credit usage.
-
-## Data and privacy
-
-Public indexing is best effort. Two wallets use a roughly **30-minute** public-index interval; more wallets automatically increase it to respect the shared free quota. Base BNB/USDT balances update about every minute. With ANKR, the index interval defaults to **5 minutes**. Manual refresh respects source schedules and Retry-After.
-
-ANKR's official Freemium plan currently includes 200M credits/month. Two wallets, four Advanced calls each every five minutes, continuously for 30 days: **48.384M credits, about 24.2%** before pagination, RPC and retries. Ordinary RPC alone cannot enumerate every token. See [data sources and costs](docs/DATA-SOURCES.md).
-
-Local settings and cache live in `~/.cbot-wallet/` (or `CBOT_HOME`). API tokens are stored locally with owner-only file permissions where supported, are not encrypted by this application, and are never returned through its state API. Protect the OS account and backups. API providers receive queried public addresses and your IP. NFT images may load from third-party HTTPS hosts in your browser. Do not commit your data directory.
-
-This is a localhost application, not a hosted portfolio service or trading bot. No send, approve, swap, signing, telemetry or arbitrary RPC proxy endpoints. It is **not a complete accounting ledger**, and reference prices are not executable sell quotes. Public NFT discovery is partial; ANKR uses up to five indexed pages and marks remaining pages as partial. Internal BNB transfers are not fully covered.
-
-## Guides
+## 文档
 
 - [精简中文教程](docs/QUICKSTART.zh-CN.md)
-- [Install, update and stop](docs/INSTALL.md)
-- [Sources, refresh budgets and ANKR math](docs/DATA-SOURCES.md)
-- [Agent skill](skills/cbot-wallet/SKILL.md)
-- [Sharing copy](docs/SHARE.zh-CN.md)
+- [Agent 自动安装流程](docs/INSTALL.agent.md)
+- [安装、更新与停止](docs/INSTALL.md)
+- [数据源与消耗计算](docs/DATA-SOURCES.md)
+- [Agent Skill](skills/cbot-wallet/SKILL.md)
+- [分享文案](docs/SHARE.zh-CN.md)
 
-## Development
+## 开发与验证
 
-```sh
-npm test
-npm run demo
-```
+Node.js 24.5+：`npm test`；合成演示：`npm run demo`。Windows 有部署实测；macOS/Linux 引导脚本需在对应系统完成部署验收，不能视为已实测。CI 模板见 docs/CI.example.yml。
 
-Demo mode uses synthetic addresses and amounts and does not call wallet providers. Windows has local deployment and test evidence. A Node24 Windows/macOS/Linux CI template is provided in docs/CI.example.yml; enable it through your own GitHub workflow setup. macOS/Linux deployment still needs a real target-host smoke test. Contributions are welcome. **MIT** covers the code; it does not grant an endorsement or ownership of the cbot name.
+代码使用 [MIT](LICENSE)，允许修改与商用，保留许可证即可；不代表品牌背书。

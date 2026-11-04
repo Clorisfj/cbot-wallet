@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { loadConfig, saveConfig, settingsForBrowser, mergeBrowserSettings, dataDir, publicInterval } from './lib/config.mjs';
+import { loadConfig, saveConfig, settingsForBrowser, mergeBrowserSettings, mergeWalletSettings, dataDir, publicInterval } from './lib/config.mjs';
 import { collect, loadBnbQuote } from './lib/data.mjs';
 import { discoverWallets } from './lib/wallet-cli.mjs';
 import { makeNetwork, usage, restoreUsage, usageEstimate, backoffState, restoreBackoff } from './lib/network.mjs';
@@ -24,7 +24,7 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
   const profiles = () => {
     const map = new Map();
     for (const p of [...discovered, ...config.wallets]) map.set(p.address, { ...map.get(p.address), ...p });
-    return [...map.values()];
+    return [...map.values()].filter(p => !(config.excludedAddresses || []).includes(p.address));
   };
   async function persist() {
     const temp = join(dataDir, 'cache-next.json');
@@ -41,7 +41,7 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
       } else if (!config.autoDiscover) discovered = [];
       const active = profiles(), network = makeNetwork(config);
       state.wallets = state.wallets.filter(w => active.some(p => p.address === w.address));
-      try { state.bnbQuote = await loadQuote(); state.quoteError = null; } catch { state.quoteError = 'BNB 参考报价暂不可用，保留原报价'; }
+      try { if (!state.bnbQuote || Date.now() - Date.parse(state.bnbQuote.at) >= config.refreshMinutes * 60000) state.bnbQuote = await loadQuote(); state.quoteError = null; } catch { state.quoteError = 'BNB 参考报价暂不可用，保留原报价'; }
       // Bound concurrency for RPC providers; Advanced and public indexes have shared rate queues.
       let cursor = 0;
       await Promise.all(Array.from({ length: Math.min(2, active.length) }, async () => {
@@ -70,17 +70,18 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
     if (req.method === 'POST') {
       if (!origins.has(req.headers.origin)) return send(403, { error: 'Same-origin required' });
       if (path === '/api/refresh') { void refresh(); return send(202, { refreshing: state.refreshing }); }
-      if (path !== '/api/settings') return send(404, { error: 'Not found' });
+      if (!['/api/settings', '/api/wallets'].includes(path)) return send(404, { error: 'Not found' });
       if (demo) return send(403, { error: '演示模式不会保存个人配置' });
       if (saving || state.refreshing) return send(409, { error: '数据刷新中，请稍后再保存' });
       if (!req.headers['content-type']?.startsWith('application/json')) return send(415, { error: 'JSON required' });
       saving = true;
       try {
         let body = ''; for await (const chunk of req) { body += chunk; if (Buffer.byteLength(body) > 32768) throw Error('配置过大'); }
-        const next = mergeBrowserSettings(config, JSON.parse(body));
+        const input = JSON.parse(body);
+        const next = path === '/api/wallets' ? mergeWalletSettings(config, input, profiles()) : mergeBrowserSettings(config, input);
         const changedProvider = next.ankrKey !== config.ankrKey || next.rpcUrl !== config.rpcUrl || next.refreshMinutes !== config.refreshMinutes;
         config = await saveConfig(next);
-        if (changedProvider) for (const w of state.wallets) { delete w.assetsNextAt; delete w.historyNextAt; delete w.nftNextAt; }
+        if (changedProvider) for (const w of state.wallets) { delete w.balanceNextAt; delete w.assetsNextAt; delete w.historyNextAt; delete w.nftNextAt; }
         state.wallets = state.wallets.filter(w => profiles().some(p => p.address === w.address));
         lastAttempt = 0;
         send(200, { success: true }); void refresh();
@@ -89,8 +90,8 @@ export async function startServer({ port = Number(process.env.CBOT_PORT || 48765
       return;
     }
     if (req.method !== 'GET') return send(405, { error: 'Read-only dashboard' });
-    if (path === '/api/health') return send(200, { app: 'wallet-desk', product: 'cbot-wallet', version: '1.0.0', demo, pid: process.pid, instance });
-    if (path === '/api/state') return send(200, { ...state, settings: settingsForBrowser(config, demo ? state.wallets : profiles()), usage: usageEstimate(config, state.wallets.length),
+    if (path === '/api/health') return send(200, { app: 'wallet-desk', product: 'cbot-wallet', version: '1.1.0', demo, pid: process.pid, instance });
+    if (path === '/api/state') return send(200, { ...state, settings: settingsForBrowser(config, demo ? state.wallets : profiles()), usage: usageEstimate(config, state.wallets.length, state.wallets.reduce((n,w) => n + (w.balances || []).filter(b => b.address).length, 0)),
       publicRefreshMinutes: publicInterval(Math.max(1, state.wallets.length)) / 60000, demo });
     if (!files[path]) return send(404, { error: 'Not found' });
     try { const [name, type] = files[path]; send(200, await readFile(join(root, 'public', name)), type); }
